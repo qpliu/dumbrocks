@@ -9,6 +9,10 @@ import java.io.RandomAccessFile;
 import java.io.Reader;
 import java.io.Writer;
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Map;
 
 import com.yrek.ifstd.glk.Glk;
 import com.yrek.ifstd.glk.GlkByteArray;
@@ -24,6 +28,7 @@ import com.yrek.ifstd.glk.GlkWindow;
 import com.yrek.ifstd.glk.GlkWindowArrangement;
 import com.yrek.ifstd.glk.GlkWindowSize;
 import com.yrek.ifstd.glk.UnicodeString;
+import com.yrek.ifstd.glulx.Glulx;
 
 public class DumbGlk implements Glk {
     private final File rootDir;
@@ -783,6 +788,8 @@ public class DumbGlk implements Glk {
 
     @Override
     public GlkEvent select() throws IOException {
+        printProfilingData(5);
+        Glulx.resetProfilingData();
         out.flush();
         if (lineEventBuffer != null) {
             int count = 0;
@@ -827,5 +834,30 @@ public class DumbGlk implements Glk {
     @Override
     public boolean imageGetInfo(int resourceId, int[] size) {
         return false;
+    }
+
+    public void printProfilingData(int maxLines) throws IOException {
+        Map<String,long[]> data = Glulx.profilingData();
+        if (data != null) {
+            ArrayList<Map.Entry<String,long[]>> list = new ArrayList<Map.Entry<String,long[]>>(data.entrySet());
+            Collections.sort(list, new Comparator<Map.Entry<String,long[]>>() {
+                @Override public int compare(Map.Entry<String,long[]> e1, Map.Entry<String,long[]> e2) {
+                    long diff = e2.getValue()[0] - e1.getValue()[0];
+                    return diff == 0 ? 0 : diff > 0 ? 1 : -1;
+                }
+                @Override public boolean equals(Object obj) {
+                    return this == obj;
+                }
+            });
+            int lines = 0;
+            for (Map.Entry<String,long[]> entry : list) {
+                long[] numbers = entry.getValue();
+                out.append(String.format("%14s c=%8d t=%6dms avg=%.3fus\n", entry.getKey(), numbers[0], numbers[1], numbers[0] == 0 ? 0.0 : 1000.0 * (double) numbers[1]/(double) numbers[0]));
+                lines++;
+                if (lines >= maxLines) {
+                    break;
+                }
+            }
+        }
     }
 }

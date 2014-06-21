@@ -1,8 +1,14 @@
 package com.yrek.dumbrocks;
 
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.EOFException;
+import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.io.Reader;
 import java.io.Writer;
+import java.net.URLEncoder;
 
 import com.yrek.ifstd.glk.Glk;
 import com.yrek.ifstd.glk.GlkByteArray;
@@ -20,6 +26,7 @@ import com.yrek.ifstd.glk.GlkWindowSize;
 import com.yrek.ifstd.glk.UnicodeString;
 
 public class DumbGlk implements Glk {
+    private final File rootDir;
     private final Reader in;
     private final Writer out;
     private final int width;
@@ -33,7 +40,8 @@ public class DumbGlk implements Glk {
     private GlkByteArray lineEventBuffer = null;
     private int lineEventInitLength = 0;
 
-    public DumbGlk(Reader in, Writer out, int width, int height) {
+    public DumbGlk(File rootDir, Reader in, Writer out, int width, int height) {
+        this.rootDir = rootDir;
         this.in = in;
         this.out = out;
         this.width = width;
@@ -87,7 +95,9 @@ public class DumbGlk implements Glk {
         case GlkGestalt.HyperlinkInput:
         case GlkGestalt.SoundMusic:
         case GlkGestalt.GraphicsTransparency:
+            return 0;
         case GlkGestalt.Unicode:
+            return 1;
         case GlkGestalt.UnicodeNorm:
         case GlkGestalt.LineInputEcho:
         case GlkGestalt.LineTerminators:
@@ -320,6 +330,32 @@ public class DumbGlk implements Glk {
             @Override
             public void cancelMouseEvent() {
             }
+
+            @Override
+            public boolean drawImage(int resourceId, int val1, int val2) throws IOException {
+                return false;
+            }
+
+            @Override
+            public boolean drawScaledImage(int resourceId, int val1, int val2, int width, int height) throws IOException {
+                return false;
+            }
+
+            @Override
+            public void flowBreak() {
+            }
+
+            @Override
+            public void eraseRect(int left, int top, int width, int height) {
+            }
+
+            @Override
+            public void fillRect(int color, int left, int top, int width, int height) {
+            }
+
+            @Override
+            public void setBackgroundColor(int color) {
+            }
         };
         return rootWindow;
     }
@@ -331,7 +367,18 @@ public class DumbGlk implements Glk {
 
     @Override
     public GlkStream streamOpenFile(GlkFile file, int mode, int rock) throws IOException {
-        throw new RuntimeException("unimplemented");
+        if (mode == GlkFile.ModeRead && !file.exists()) {
+            return null;
+        }
+        return new DumbStreamFile(file, mode, false, rock);
+    }
+
+    @Override
+    public GlkStream streamOpenFileUni(GlkFile file, int mode, int rock) throws IOException {
+        if (mode == GlkFile.ModeRead && !file.exists()) {
+            return null;
+        }
+        return new DumbStreamFile(file, mode, true, rock);
     }
 
     @Override
@@ -400,12 +447,12 @@ public class DumbGlk implements Glk {
 
     @Override
     public GlkFile fileCreateTemp(int usage, int rock) throws IOException {
-        throw new RuntimeException("unimplemented");
+        return new DumbFile(File.createTempFile("dg.",".tmp"), usage, GlkFile.ModeReadWrite, rock);
     }
 
     @Override
     public GlkFile fileCreateByName(int usage, CharSequence name, int rock) throws IOException {
-        throw new RuntimeException("unimplemented");
+        return new DumbFile(new File(rootDir, URLEncoder.encode("dg."+name, "UTF-8")), usage, GlkFile.ModeReadWrite, rock);
     }
 
     @Override
@@ -415,7 +462,299 @@ public class DumbGlk implements Glk {
 
     @Override
     public GlkFile fileCreateFromFile(int usage, GlkFile file, int rock) throws IOException {
-        throw new RuntimeException("unimplemented");
+        return new DumbFile(((DumbFile) file).file, usage, ((DumbFile) file).mode, rock);
+    }
+
+    private class DumbFile extends GlkFile {
+        final File file;
+        final int usage;
+        final int mode;
+
+        DumbFile(File file, int usage, int mode, int rock) {
+            super(rock);
+            this.file = file;
+            this.usage = usage;
+            this.mode = mode;
+        }
+
+        @Override
+        public void delete() {
+            file.delete();
+        }
+
+        @Override
+        public boolean exists() {
+            return file.exists();
+        }
+    }
+
+    private class DumbStreamFile extends GlkStream {
+        final RandomAccessFile file;
+        final boolean unicode;
+        int readCount = 0;
+        int writeCount = 0;
+
+        DumbStreamFile(GlkFile file, int mode, boolean unicode, int rock) throws IOException {
+            super(rock);
+            rootDir.mkdirs();
+            this.file = new RandomAccessFile(((DumbFile) file).file, mode == GlkFile.ModeRead ? "r" : "rw");
+            switch (mode) {
+            case GlkFile.ModeWrite:
+                this.file.setLength(0L);
+                break;
+            case GlkFile.ModeRead:
+            case GlkFile.ModeReadWrite:
+                this.file.seek(0L);
+                break;
+            case GlkFile.ModeWriteAppend:
+                this.file.seek(this.file.length());
+                break;
+            default:
+                throw new IllegalArgumentException();
+            }
+            this.unicode = unicode;
+        }
+
+        @Override
+        public GlkStreamResult close() throws IOException {
+            file.close();
+            destroy();
+            return new GlkStreamResult(readCount, writeCount);
+        }
+
+        @Override
+        public void putChar(int ch) throws IOException {
+            writeCount++;
+            if (unicode) {
+                file.writeInt(ch & 255);
+            } else {
+                file.write(ch);
+            }
+        }
+
+        @Override
+        public void putString(CharSequence string) throws IOException {
+            writeCount += string.length();
+            if (unicode) {
+                for (int i = 0; i < string.length(); i++) {
+                    file.writeInt(string.charAt(i) & 255);
+                }
+            } else {
+                file.writeBytes(string.toString());
+            }
+        }
+
+        @Override
+        public void putBuffer(GlkByteArray buffer) throws IOException {
+            writeCount += buffer.getArrayLength();
+            if (unicode) {
+                for (int i = 0; i < buffer.getArrayLength(); i++) {
+                    file.writeInt(buffer.getByteElementAt(i) & 255);
+                }
+            } else {
+                for (int i = 0; i < buffer.getArrayLength(); i++) {
+                    file.write(buffer.getByteElementAt(i));
+                }
+            }
+        }
+
+        @Override
+        public void putCharUni(int ch) throws IOException {
+            writeCount++;
+            if (unicode) {
+                file.writeInt(ch);
+            } else {
+                file.write(ch);
+            }
+        }
+
+        @Override
+        public void putStringUni(UnicodeString string) throws IOException {
+            writeCount += string.codePointCount();
+            if (unicode) {
+                for (int i = 0; i < string.codePointCount(); i++) {
+                    file.writeInt(string.codePointAt(i));
+                }
+            } else {
+                for (int i = 0; i < string.codePointCount(); i++) {
+                    file.write(string.codePointAt(i));
+                }
+            }
+        }
+
+        @Override
+        public void putBufferUni(GlkIntArray buffer) throws IOException {
+            writeCount += buffer.getArrayLength();
+            if (unicode) {
+                for (int i = 0; i < buffer.getArrayLength(); i++) {
+                    file.writeInt(buffer.getIntElementAt(i));
+                }
+            } else {
+                for (int i = 0; i < buffer.getArrayLength(); i++) {
+                    file.write(buffer.getIntElementAt(i));
+                }
+            }
+        }
+
+        @Override
+        public void setStyle(int style) {
+        }
+
+        @Override
+        public int getChar() throws IOException {
+            int ch = -1;
+            try {
+                if (unicode) {
+                    ch = file.readInt() & 255;
+                } else {
+                    ch = file.readUnsignedByte();
+                }
+                readCount++;
+            } catch (EOFException e) {
+            }
+            return ch;
+        }
+
+        @Override
+        public int getLine(GlkByteArray buffer) throws IOException {
+            int index = 0;
+            while (index < buffer.getArrayLength() - 1) {
+                int ch;
+                try {
+                    if (unicode) {
+                        ch = file.readInt() & 255;
+                    } else {
+                        ch = file.readUnsignedByte();
+                    }
+                } catch (EOFException e) {
+                    break;
+                }
+                readCount++;
+                buffer.setByteElementAt(index, ch);
+                index++;
+                if (ch == 10) {
+                    break;
+                }
+            }
+            buffer.setByteElementAt(index, 0);
+            return index;
+        }
+
+        @Override
+        public int getBuffer(GlkByteArray buffer) throws IOException {
+            int index = 0;
+            while (index < buffer.getArrayLength() - 1) {
+                int ch;
+                try {
+                    if (unicode) {
+                        ch = file.readInt() & 255;
+                    } else {
+                        ch = file.readUnsignedByte();
+                    }
+                } catch (EOFException e) {
+                    break;
+                }
+                readCount++;
+                buffer.setByteElementAt(index, ch);
+                index++;
+            }
+            buffer.setByteElementAt(index, 0);
+            return index;
+        }
+
+        @Override
+        public int getCharUni() throws IOException {
+            int ch = -1;
+            try {
+                if (unicode) {
+                    ch = file.readInt();
+                } else {
+                    ch = file.readUnsignedByte();
+                }
+                readCount++;
+            } catch (EOFException e) {
+            }
+            return ch;
+        }
+
+        @Override
+        public int getLineUni(GlkIntArray buffer) throws IOException {
+            int index = 0;
+            while (index < buffer.getArrayLength() - 1) {
+                int ch;
+                try {
+                    if (unicode) {
+                        ch = file.readInt();
+                    } else {
+                        ch = file.readUnsignedByte();
+                    }
+                } catch (EOFException e) {
+                    break;
+                }
+                readCount++;
+                buffer.setIntElementAt(index, ch);
+                index++;
+                if (ch == 10) {
+                    break;
+                }
+            }
+            buffer.setIntElementAt(index, 0);
+            return index;
+        }
+
+        @Override
+        public int getBufferUni(GlkIntArray buffer) throws IOException {
+            int index = 0;
+            while (index < buffer.getArrayLength() - 1) {
+                int ch;
+                try {
+                    if (unicode) {
+                        ch = file.readInt();
+                    } else {
+                        ch = file.readUnsignedByte();
+                    }
+                } catch (EOFException e) {
+                    break;
+                }
+                readCount++;
+                buffer.setIntElementAt(index, ch);
+                index++;
+            }
+            buffer.setIntElementAt(index, 0);
+            return index;
+        }
+
+        @Override
+        public void setPosition(int position, int seekMode) throws IOException {
+            switch (seekMode) {
+            case GlkStream.SeekModeStart:
+                file.seek((long) position);
+                break;
+            case GlkStream.SeekModeCurrent:
+                file.seek(file.getFilePointer() + position);
+                break;
+            case GlkStream.SeekModeEnd:
+                file.seek(file.length() + position);
+                break;
+            default:
+                throw new IllegalArgumentException();
+            }
+        }
+
+        @Override
+        public int getPosition() throws IOException {
+            return (int) file.getFilePointer();
+        }
+
+        @Override
+        public DataOutput getDataOutput() {
+            return file;
+        }
+
+        @Override
+        public DataInput getDataInput() {
+            return file;
+        }
     }
 
 
@@ -444,7 +783,7 @@ public class DumbGlk implements Glk {
                     charEventRequested = false;
                     return new GlkEvent(GlkEvent.TypeCharInput, rootWindow, input == -1 ? ch : input, 0);
                 }
-                if (input != -1) {
+                if (input == -1) {
                     input = ch;
                 }
             }
@@ -459,5 +798,11 @@ public class DumbGlk implements Glk {
 
     @Override
     public void requestTimerEvents(int millisecs) {
+    }
+
+
+    @Override
+    public boolean imageGetInfo(int resourceId, int[] size) {
+        return false;
     }
 }

@@ -79,9 +79,7 @@ public class DumbGlk implements Glk {
         case GlkGestalt.Version:
             return Glk.GlkVersion;
         case GlkGestalt.CharInput:
-            return 0;
         case GlkGestalt.LineInput:
-            return 1;
         case GlkGestalt.CharOutput:
             return 1;
         case GlkGestalt.MouseInput:
@@ -457,7 +455,32 @@ public class DumbGlk implements Glk {
 
     @Override
     public GlkFile fileCreateByPrompt(int usage, int mode, int rock) throws IOException {
-        throw new RuntimeException("unimplemented");
+        switch (usage & GlkFile.UsageTypeMask) {
+        case GlkFile.UsageData:
+            out.append("Enter filename for data file: ");
+            break;
+        case GlkFile.UsageSavedGame:
+            out.append("Enter filename for save file: ");
+            break;
+        case GlkFile.UsageTranscript:
+            out.append("Enter filename for transcript: ");
+            break;
+        case GlkFile.UsageInputRecord:
+            out.append("Enter filename for input record: ");
+            break;
+        default:
+            throw new IllegalArgumentException();
+        }
+        out.flush();
+        StringBuilder sb = new StringBuilder();
+        for (;;) {
+            int ch = in.read();
+            if (ch < 0 || ch == 10) {
+                break;
+            }
+            sb.append((char) ch);
+        }
+        return new DumbFile(new File(rootDir, URLEncoder.encode("dg."+sb, "UTF-8")), usage, mode, rock);
     }
 
     @Override

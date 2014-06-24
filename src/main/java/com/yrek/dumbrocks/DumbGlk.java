@@ -27,6 +27,7 @@ import com.yrek.ifstd.glk.GlkStreamResult;
 import com.yrek.ifstd.glk.GlkWindow;
 import com.yrek.ifstd.glk.GlkWindowArrangement;
 import com.yrek.ifstd.glk.GlkWindowSize;
+import com.yrek.ifstd.glk.GlkWindowStream;
 import com.yrek.ifstd.glk.UnicodeString;
 import com.yrek.ifstd.glulx.Glulx;
 
@@ -38,7 +39,7 @@ public class DumbGlk implements Glk {
     private final int height;
 
     private GlkStream currentStream = null;
-    private GlkStream rootStream = null;
+    private GlkWindowStream rootStream = null;
     private GlkWindow rootWindow = null;
     private int outputCount = 0;
     private boolean charEventRequested = false;
@@ -141,102 +142,15 @@ public class DumbGlk implements Glk {
             return null;
         }
         outputCount = 0;
-        rootStream = new GlkStream(0) {
+        rootWindow = new GlkWindow(rock) {
+            @Override
+            public GlkWindowStream getStream() {
+                return rootStream;
+            }
+
             @Override
             public GlkStreamResult close() throws IOException {
-                throw new IllegalStateException();
-            }
-
-            @Override
-            public void putChar(int ch) throws IOException {
-                outputCount++;
-                out.write((char) (ch & 255));
-            }
-
-            @Override
-            public void putString(CharSequence string) throws IOException {
-                outputCount += string.length();
-                out.append(string);
-            }
-
-            @Override
-            public void putBuffer(GlkByteArray buffer) throws IOException {
-                int length = buffer.getArrayLength();
-                outputCount += length;
-                for (int i = 0; i < length; i++) {
-                    out.write((char) (buffer.getByteElementAt(i) & 255));
-                }
-            }
-
-            @Override
-            public void putCharUni(int ch) throws IOException {
-                outputCount++;
-                out.write(Character.toChars(ch));
-            }
-
-            @Override
-            public void putStringUni(UnicodeString string) throws IOException {
-                outputCount += string.codePointCount();
-                out.append(string);
-            }
-
-            @Override
-            public void putBufferUni(GlkIntArray buffer) throws IOException {
-                int length = buffer.getArrayLength();
-                outputCount += length;
-                for (int i = 0; i < length; i++) {
-                    out.write(Character.toChars(buffer.getIntElementAt(i)));
-                }
-            }
-
-            @Override
-            public void setStyle(int style) {
-            }
-
-            @Override
-            public int getChar() throws IOException {
-                throw new IllegalStateException();
-            }
-
-            @Override
-            public int getLine(GlkByteArray buffer) throws IOException {
-                throw new IllegalStateException();
-            }
-
-            @Override
-            public int getBuffer(GlkByteArray buffer) throws IOException {
-                throw new IllegalStateException();
-            }
-
-            @Override
-            public int getCharUni() throws IOException {
-                throw new IllegalStateException();
-            }
-
-            @Override
-            public int getLineUni(GlkIntArray buffer) throws IOException {
-                throw new IllegalStateException();
-            }
-
-            @Override
-            public int getBufferUni(GlkIntArray buffer) throws IOException {
-                throw new IllegalStateException();
-            }
-
-            @Override
-            public void setPosition(int position, int seekMode) throws IOException {
-                throw new IllegalStateException();
-            }
-
-            @Override
-            public int getPosition() throws IOException {
-                return outputCount;
-            }
-        };
-        rootWindow = new GlkWindow(rootStream, rock) {
-            @Override
-            public GlkStreamResult close() throws IOException {
-                if (currentStream == getStream()) {
+                if (currentStream == rootStream) {
                     currentStream = null;
                 }
                 destroy();
@@ -358,6 +272,93 @@ public class DumbGlk implements Glk {
 
             @Override
             public void setBackgroundColor(int color) {
+            }
+        };
+        rootStream = new GlkWindowStream(rootWindow, 0) {
+            @Override
+            public void putChar(int ch) throws IOException {
+                outputCount++;
+                out.write((char) (ch & 255));
+            }
+
+            @Override
+            public void putString(CharSequence string) throws IOException {
+                outputCount += string.length();
+                out.append(string);
+            }
+
+            @Override
+            public void putBuffer(GlkByteArray buffer) throws IOException {
+                int length = buffer.getArrayLength();
+                outputCount += length;
+                for (int i = 0; i < length; i++) {
+                    out.write((char) (buffer.getByteElementAt(i) & 255));
+                }
+            }
+
+            @Override
+            public void putCharUni(int ch) throws IOException {
+                outputCount++;
+                out.write(Character.toChars(ch));
+            }
+
+            @Override
+            public void putStringUni(UnicodeString string) throws IOException {
+                outputCount += string.codePointCount();
+                out.append(string);
+            }
+
+            @Override
+            public void putBufferUni(GlkIntArray buffer) throws IOException {
+                int length = buffer.getArrayLength();
+                outputCount += length;
+                for (int i = 0; i < length; i++) {
+                    out.write(Character.toChars(buffer.getIntElementAt(i)));
+                }
+            }
+
+            @Override
+            public void setStyle(int style) {
+            }
+
+            @Override
+            public int getChar() throws IOException {
+                throw new IllegalStateException();
+            }
+
+            @Override
+            public int getLine(GlkByteArray buffer) throws IOException {
+                throw new IllegalStateException();
+            }
+
+            @Override
+            public int getBuffer(GlkByteArray buffer) throws IOException {
+                throw new IllegalStateException();
+            }
+
+            @Override
+            public int getCharUni() throws IOException {
+                throw new IllegalStateException();
+            }
+
+            @Override
+            public int getLineUni(GlkIntArray buffer) throws IOException {
+                throw new IllegalStateException();
+            }
+
+            @Override
+            public int getBufferUni(GlkIntArray buffer) throws IOException {
+                throw new IllegalStateException();
+            }
+
+            @Override
+            public void setPosition(int position, int seekMode) throws IOException {
+                throw new IllegalStateException();
+            }
+
+            @Override
+            public int getPosition() throws IOException {
+                return outputCount;
             }
         };
         return rootWindow;

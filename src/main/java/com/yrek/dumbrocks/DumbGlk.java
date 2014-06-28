@@ -203,6 +203,16 @@ public class DumbGlk implements Glk {
             }
 
             @Override
+            public int getCursorX() {
+                return 0;
+            }
+
+            @Override
+            public int getCursorY() {
+                return 0;
+            }
+
+            @Override
             public boolean styleDistinguish(int style1, int style2) {
                 return false;
             }

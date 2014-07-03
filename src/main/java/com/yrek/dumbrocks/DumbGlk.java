@@ -20,6 +20,7 @@ import com.yrek.ifstd.glk.GlkEvent;
 import com.yrek.ifstd.glk.GlkFile;
 import com.yrek.ifstd.glk.GlkGestalt;
 import com.yrek.ifstd.glk.GlkIntArray;
+import com.yrek.ifstd.glk.GlkSChannel;
 import com.yrek.ifstd.glk.GlkStream;
 import com.yrek.ifstd.glk.GlkStreamMemory;
 import com.yrek.ifstd.glk.GlkStreamMemoryUnicode;
@@ -232,6 +233,11 @@ public class DumbGlk implements Glk {
             }
 
             @Override
+            public void requestLineEventUni(GlkIntArray buffer, int initLength) {
+                throw new RuntimeException("unimplemented");
+            }
+
+            @Override
             public void requestCharEvent() {
                 if (lineEventBuffer != null || charEventRequested) {
                     throw new IllegalStateException();
@@ -240,7 +246,16 @@ public class DumbGlk implements Glk {
             }
 
             @Override
+            public void requestCharEventUni() {
+                throw new RuntimeException("unimplemented");
+            }
+
+            @Override
             public void requestMouseEvent() {
+            }
+
+            @Override
+            public void requestHyperlinkEvent() {
             }
 
             @Override
@@ -256,6 +271,10 @@ public class DumbGlk implements Glk {
 
             @Override
             public void cancelMouseEvent() {
+            }
+
+            @Override
+            public void cancelHyperlinkEvent() {
             }
 
             @Override
@@ -286,6 +305,10 @@ public class DumbGlk implements Glk {
 
             @Override
             public void setEchoLineEvent(boolean echoLineEvent) {
+            }
+
+            @Override
+            public void setTerminatorsLineEvent(int[] keycodes) {
             }
         };
         rootStream = new GlkWindowStream(rootWindow) {
@@ -341,6 +364,10 @@ public class DumbGlk implements Glk {
             public void setStyle(int style) {
                 super.setStyle(style);
             }
+
+            @Override
+            public void setHyperlink(int linkVal) {
+            }
         };
         return rootWindow;
     }
@@ -374,6 +401,16 @@ public class DumbGlk implements Glk {
     @Override
     public GlkStream streamOpenMemoryUni(GlkIntArray memory, int mode, int rock) {
         return new GlkStreamMemoryUnicode(memory, rock);
+    }
+
+    @Override
+    public GlkStream streamOpenResource(int resourceId, int rock) {
+        throw new RuntimeException("unimplemented");
+    }
+
+    @Override
+    public GlkStream streamOpenResourceUni(int resourceId, int rock) {
+        throw new RuntimeException("unimplemented");
     }
 
     @Override
@@ -419,6 +456,11 @@ public class DumbGlk implements Glk {
     @Override
     public void setStyle(int style) {
         currentStream.setStyle(style);
+    }
+
+    @Override
+    public void setHyperlink(int linkVal) {
+        currentStream.setHyperlink(linkVal);
     }
 
     @Override
@@ -611,6 +653,10 @@ public class DumbGlk implements Glk {
         }
 
         @Override
+        public void setHyperlink(int linkVal) {
+        }
+
+        @Override
         public int getChar() throws IOException {
             int ch = -1;
             try {
@@ -765,6 +811,26 @@ public class DumbGlk implements Glk {
         public DataInput getDataInput() {
             return file;
         }
+    }
+
+
+    @Override
+    public GlkSChannel sChannelCreate(int rock) throws IOException {
+        return null;
+    }
+
+    @Override
+    public GlkSChannel sChannelCreateExt(int rock, int volume) throws IOException {
+        return null;
+    }
+
+    @Override
+    public int sChannelPlayMulti(GlkSChannel[] channels, int[] resourceIds, boolean notify) {
+        return 0;
+    }
+
+    @Override
+    public void soundLoadHint(int resourceId, boolean flag) {
     }
 
 

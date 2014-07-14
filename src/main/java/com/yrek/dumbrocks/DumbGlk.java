@@ -825,7 +825,7 @@ public class DumbGlk implements Glk {
     }
 
     @Override
-    public int sChannelPlayMulti(GlkSChannel[] channels, int[] resourceIds, boolean notify) {
+    public int sChannelPlayMulti(GlkSChannel[] channels, int[] resourceIds, int notify) {
         return 0;
     }
 

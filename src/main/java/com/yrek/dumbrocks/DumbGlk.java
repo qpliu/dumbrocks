@@ -425,42 +425,58 @@ public class DumbGlk implements Glk {
 
     @Override
     public void putChar(int ch) throws IOException {
-        currentStream.putChar(ch);
+        if (currentStream != null) {
+            currentStream.putChar(ch);
+        }
     }
 
     @Override
     public void putString(CharSequence string) throws IOException {
-        currentStream.putString(string);
+        if (currentStream != null) {
+            currentStream.putString(string);
+        }
     }
 
     @Override
     public void putBuffer(GlkByteArray buffer) throws IOException {
-        currentStream.putBuffer(buffer);
+        if (currentStream != null) {
+            currentStream.putBuffer(buffer);
+        }
     }
 
     @Override
     public void putCharUni(int ch) throws IOException {
-        currentStream.putCharUni(ch);
+        if (currentStream != null) {
+            currentStream.putCharUni(ch);
+        }
     }
 
     @Override
     public void putStringUni(UnicodeString string) throws IOException {
-        currentStream.putStringUni(string);
+        if (currentStream != null) {
+            currentStream.putStringUni(string);
+        }
     }
 
     @Override
     public void putBufferUni(GlkIntArray buffer) throws IOException {
-        currentStream.putBufferUni(buffer);
+        if (currentStream != null) {
+            currentStream.putBufferUni(buffer);
+        }
     }
 
     @Override
     public void setStyle(int style) {
-        currentStream.setStyle(style);
+        if (currentStream != null) {
+            currentStream.setStyle(style);
+        }
     }
 
     @Override
     public void setHyperlink(int linkVal) {
-        currentStream.setHyperlink(linkVal);
+        if (currentStream != null) {
+            currentStream.setHyperlink(linkVal);
+        }
     }
 
     @Override
